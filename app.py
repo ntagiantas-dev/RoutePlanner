@@ -67,8 +67,7 @@ else:
             create_route(selected_driver, stops)
             st.success("✅ Η διαδρομή δημιουργήθηκε!")
         else:
-            st.error("Βάλε τουλάχιστον μία στάση!")git add .
-            git commit -m ""
+            st.error("Βάλε τουλάχιστον μία στάση!")
 
     st.divider()
     
