@@ -14,7 +14,7 @@ def geocode_address(address, api_key):
     return None, None
 
 def optimize_route(addresses, api_key):
-    # Geocoding όλων των διευθύνσεων
+    # Βήμα 1: Geocoding
     coords = []
     for address in addresses:
         lat, lon = geocode_address(address, api_key)
@@ -24,34 +24,40 @@ def optimize_route(addresses, api_key):
     if len(coords) < 2:
         return coords, 0
 
-    # Route Optimization API
-    waypoints = [{"location": [c["lon"], c["lat"]]} for c in coords]
+    # Βήμα 2: Route Optimization
     url = "https://api.geoapify.com/v1/routeplanner"
+    
     payload = {
         "mode": "drive",
-        "agents": [{"start_location": waypoints[0]["location"]}],
-        "shipments": [
+        "agents": [{
+            "start_location": [coords[0]["lon"], coords[0]["lat"]],
+            "end_location": [coords[-1]["lon"], coords[-1]["lat"]]
+        }],
+        "jobs": [
             {
-                "delivery": {"location": w["location"]}
+                "id": i,
+                "location": [c["lon"], c["lat"]]
             }
-            for w in waypoints[1:]
+            for i, c in enumerate(coords[1:-1])
         ]
     }
-    headers = {"Content-Type": "application/json"}
-    params = {"apiKey": api_key}
-    response = requests.post(url, json=payload, headers=headers, params=params)
+    
+    response = requests.post(
+        url,
+        json=payload,
+        params={"apiKey": api_key}
+    )
     data = response.json()
-
-    # Εξαγωγή βέλτιστης σειράς και χρόνου
+    
     try:
-        actions = data["features"][0]["properties"]["actions"]
-        ordered = []
+        waypoints = data["features"][0]["properties"]["waypoints"]
+        ordered = [coords[0]]
+        for wp in waypoints:
+            job_id = wp["original_location_index"]
+            ordered.append(coords[job_id + 1])
+        ordered.append(coords[-1])
         total_time = data["features"][0]["properties"]["time"]
-        for action in actions:
-            if action["type"] == "deliver":
-                idx = action["shipment_index"]
-                ordered.append(coords[idx + 1])
-        return [coords[0]] + ordered, total_time
+        return ordered, total_time
     except:
         return coords, 0
 
