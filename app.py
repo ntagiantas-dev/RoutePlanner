@@ -71,6 +71,8 @@ else:
             # Προσθήκη σημείου εκκίνησης στην αρχή και τέλος
             all_stops = [start_location] + stops_list + [start_location]
             optimized, total_time = optimize_route(all_stops, api_key)
+            st.write("DEBUG optimized:", optimized)
+            st.write("DEBUG total_time:", total_time)
         
         minutes = int(total_time / 60)
         st.success(f"✅ Διαδρομή δημιουργήθηκε! Εκτιμώμενος χρόνος: {minutes} λεπτά")
