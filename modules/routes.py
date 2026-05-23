@@ -11,18 +11,25 @@ from modules.maps import get_google_maps_url
 import uuid
 from datetime import datetime
 
-def create_route(driver_username, stops):
+def create_route(driver_username, stops, optimized_stops=None):
     """
     Δημιουργεί νέο route για οδηγό.
     driver_username: το όνομα του οδηγού
     stops: λίστα διευθύνσεων
+    optimized_stops: λίστα με dict {address, lat, lon} από Geoapify
     """
-    route = {
-        "id": str(uuid.uuid4()),
-        "driver": driver_username,
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "status": "active",
-        "stops": [
+    if optimized_stops:
+        stops_data = [
+            {
+                "address": s["address"],
+                "status": "pending",
+                "lat": s["lat"],
+                "lon": s["lon"]
+            }
+            for s in optimized_stops
+        ]
+    else:
+        stops_data = [
             {
                 "address": addr,
                 "status": "pending",
@@ -31,6 +38,13 @@ def create_route(driver_username, stops):
             }
             for addr in stops
         ]
+
+    route = {
+        "id": str(uuid.uuid4()),
+        "driver": driver_username,
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "status": "active",
+        "stops": stops_data
     }
     save_route(route)
     return route

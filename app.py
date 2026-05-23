@@ -56,18 +56,29 @@ else:
     from modules.database import get_all_users
     drivers = [u for u in get_all_users() if u["role"] == "driver"]
     driver_names = [d["username"] for d in drivers]
+    start_location = st.text_input("Σημείο Εκκίνησης", placeholder="π.χ Αθήνα, Ομόνοια")
     
     selected_driver = st.selectbox("Επίλεξε Οδηγό", driver_names)
     stops_text = st.text_area("Στάσεις (μία ανά γραμμή)", height=150)
     
     if st.button("Δημιούργησε Διαδρομή"):
-        stops = [s.strip() for s in stops_text.split("\n") if s.strip()]
-        if stops and selected_driver:
-            from modules.routes import create_route
-            create_route(selected_driver, stops)
-            st.success("✅ Η διαδρομή δημιουργήθηκε!")
-        else:
-            st.error("Βάλε τουλάχιστον μία στάση!")
+        stops_list = [s.strip() for s in stops_text.split("\n") if s.strip()]
+        if stops_list and selected_driver:
+         api_key = st.secrets["GEOAPIFY_API_KEY"]
+        
+        with st.spinner("Βελτιστοποίηση διαδρομής..."):
+            from modules.maps import optimize_route
+            # Προσθήκη σημείου εκκίνησης στην αρχή και τέλος
+            all_stops = [start_location] + stops_list + [start_location]
+            optimized, total_time = optimize_route(all_stops, api_key)
+        
+        minutes = int(total_time / 60)
+        st.success(f"✅ Διαδρομή δημιουργήθηκε! Εκτιμώμενος χρόνος: {minutes} λεπτά")
+        
+        from modules.routes import create_route
+        create_route(selected_driver, [s["address"] for s in optimized], optimized)
+    else:
+        st.error("Βάλε τουλάχιστον μία στάση!")
 
     st.divider()
     
