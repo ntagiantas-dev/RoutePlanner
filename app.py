@@ -47,23 +47,45 @@ else:
         show_driver_view(user)
 
     elif role == "dispatcher":
-        # Dispatcher βλέπει όλους τους οδηγούς
-        st.title("📊 Dashboard Dispatcher")
-        st.info("Σύντομα: Live παρακολούθηση οδηγών!")
+     st.title("📊 Dashboard Dispatcher")
+    st.info("Σύντομα: Live παρακολούθηση οδηγών!")
 
-        from modules.database import get_all_routes
-        routes = get_all_routes()
-
-        if not routes:
-            st.warning("Δεν υπάρχουν ακόμα διαδρομές.")
+    # Φόρμα δημιουργίας νέας διαδρομής
+    st.subheader("➕ Νέα Διαδρομή")
+    
+    from modules.database import get_all_users
+    drivers = [u for u in get_all_users() if u["role"] == "driver"]
+    driver_names = [d["username"] for d in drivers]
+    
+    selected_driver = st.selectbox("Επίλεξε Οδηγό", driver_names)
+    stops_text = st.text_area("Στάσεις (μία ανά γραμμή)", height=150)
+    
+    if st.button("Δημιούργησε Διαδρομή"):
+        stops = [s.strip() for s in stops_text.split("\n") if s.strip()]
+        if stops and selected_driver:
+            from modules.routes import create_route
+            create_route(selected_driver, stops)
+            st.success("✅ Η διαδρομή δημιουργήθηκε!")
         else:
-            for route in routes:
-                st.subheader(f"🚚 Οδηγός: {route['driver']}")
-                for i, stop in enumerate(route["stops"]):
-                    if stop["status"] == "done":
-                        icon = "✅"
-                    elif stop["status"] == "skip":
-                        icon = "⏭️"
-                    else:
-                        icon = "🔴"
-                    st.write(f"{icon} {i+1}. {stop['address']}")
+            st.error("Βάλε τουλάχιστον μία στάση!")git add .
+            git commit -m ""
+
+    st.divider()
+    
+    # Εμφάνιση υπαρχουσών διαδρομών
+    st.subheader("📋 Όλες οι Διαδρομές")
+    from modules.database import get_all_routes
+    routes = get_all_routes()
+    if not routes:
+        st.warning("Δεν υπάρχουν ακόμα διαδρομές.")
+    else:
+        for route in routes:
+            st.subheader(f"🚛 Οδηγός: {route['driver']}")
+            for i, stop in enumerate(route["stops"]):
+                if stop["status"] == "done":
+                    icon = "✅"
+                elif stop["status"] == "skip":
+                    icon = "⏭️"
+                else:
+                    icon = "🔴"
+                st.write(f"{icon} {i+1}. {stop['address']}")
