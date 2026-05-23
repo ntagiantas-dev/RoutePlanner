@@ -1,67 +1,78 @@
-# ============================================
-# MAPS MODULE
-# Υπεύθυνο για χάρτες και βελτιστοποίηση διαδρομής
-# Χρησιμοποιεί Geoapify API για βελτιστοποίηση
-# και Folium για εμφάνιση χάρτη
-# ============================================
-
 import requests
 import folium
 import streamlit as st
 
+def geocode_address(address, api_key):
+    url = "https://api.geoapify.com/v1/geocode/search"
+    params = {"text": address, "apiKey": api_key}
+    response = requests.get(url, params=params)
+    data = response.json()
+    if data["features"]:
+        lon = data["features"][0]["geometry"]["coordinates"][0]
+        lat = data["features"][0]["geometry"]["coordinates"][1]
+        return lat, lon
+    return None, None
+
 def optimize_route(addresses, api_key):
-    """
-    Στέλνει τις διευθύνσεις στο Geoapify
-    και επιστρέφει τη βέλτιστη σειρά.
-    addresses: λίστα με διευθύνσεις
-    api_key: το Geoapify API key
-    """
-    # Geocoding - μετατροπή διευθύνσεων σε συντεταγμένες
+    # Geocoding όλων των διευθύνσεων
     coords = []
     for address in addresses:
-        url = f"https://api.geoapify.com/v1/geocode/search"
-        params = {"text": address, "apiKey": api_key}
-        response = requests.get(url, params=params)
-        data = response.json()
-        if data["features"]:
-            lon = data["features"][0]["geometry"]["coordinates"][0]
-            lat = data["features"][0]["geometry"]["coordinates"][1]
+        lat, lon = geocode_address(address, api_key)
+        if lat and lon:
             coords.append({"address": address, "lat": lat, "lon": lon})
-    return coords
+
+    if len(coords) < 2:
+        return coords, 0
+
+    # Route Optimization API
+    waypoints = [{"location": [c["lon"], c["lat"]]} for c in coords]
+    url = "https://api.geoapify.com/v1/routeplanner"
+    payload = {
+        "mode": "drive",
+        "agents": [{"start_location": waypoints[0]["location"]}],
+        "shipments": [
+            {
+                "delivery": {"location": w["location"]}
+            }
+            for w in waypoints[1:]
+        ]
+    }
+    headers = {"Content-Type": "application/json"}
+    params = {"apiKey": api_key}
+    response = requests.post(url, json=payload, headers=headers, params=params)
+    data = response.json()
+
+    # Εξαγωγή βέλτιστης σειράς και χρόνου
+    try:
+        actions = data["features"][0]["properties"]["actions"]
+        ordered = []
+        total_time = data["features"][0]["properties"]["time"]
+        for action in actions:
+            if action["type"] == "deliver":
+                idx = action["shipment_index"]
+                ordered.append(coords[idx + 1])
+        return [coords[0]] + ordered, total_time
+    except:
+        return coords, 0
 
 def create_map(stops):
-    """
-    Δημιουργεί χάρτη Folium με τις στάσεις.
-    stops: λίστα με dict {address, lat, lon, status}
-    """
     if not stops:
         return None
-    
-    # Κεντράρισμα χάρτη στην πρώτη στάση
     m = folium.Map(location=[stops[0]["lat"], stops[0]["lon"]], zoom_start=13)
-    
     for i, stop in enumerate(stops):
-        # Χρώμα ανάλογα με την κατάσταση
         if stop.get("status") == "done":
             color = "green"
         elif stop.get("status") == "skip":
             color = "gray"
         else:
-            color = "red"  # pending
-        
-        # Προσθήκη marker στον χάρτη
+            color = "red"
         folium.Marker(
             location=[stop["lat"], stop["lon"]],
             popup=f"{i+1}. {stop['address']}",
             icon=folium.Icon(color=color)
         ).add_to(m)
-    
     return m
 
 def get_google_maps_url(address):
-    """
-    Δημιουργεί URL για Google Maps navigation.
-    Ανοίγει στο κινητό του οδηγού.
-    """
     address_encoded = address.replace(" ", "+")
     return f"https://www.google.com/maps/dir/?api=1&destination={address_encoded}"
