@@ -48,7 +48,7 @@ def optimize_route(addresses, api_key):
         params={"apiKey": api_key}
     )
     data = response.json()
-    
+    st.write("DEBUG API:", data)
     try:
         waypoints = data["features"][0]["properties"]["waypoints"]
         ordered = [coords[0]]
