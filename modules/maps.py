@@ -35,7 +35,7 @@ def optimize_route(addresses, api_key):
         }],
         "jobs": [
             {
-                "id": i,
+                "id": str(i),
                 "location": [c["lon"], c["lat"]]
             }
             for i, c in enumerate(coords[1:-1])
